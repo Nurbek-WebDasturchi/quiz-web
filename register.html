@@ -268,10 +268,12 @@
         if (users.find((u) => u.email === email)) {
           showAlert("danger", "Bu email allaqachon ro'yxatdan o'tgan!"); return;
         }
-        users.push({ name, email, faculty, role, password, createdAt: new Date().toISOString() });
+        const user = { name, email, faculty, role, password, createdAt: new Date().toISOString() };
+        users.push(user);
         localStorage.setItem("users", JSON.stringify(users));
+        localStorage.setItem("currentUser", JSON.stringify(user));
         showAlert("success", "Muvaffaqiyatli ro'yxatdan o'tdingiz!");
-        setTimeout(() => (window.location.href = "login.html"), 1500);
+        setTimeout(() => (window.location.href = "dashboard.html"), 800);
       });
     </script>
   </body>
