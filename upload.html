@@ -86,8 +86,8 @@
                 </p>
                 <p class="small text-muted mb-0">
                   <code>.docx</code> va <code>.txt</code> to'liq
-                  qo'llab-quvvatlanadi • To'g'ri javob <code>#</code> bilan
-                  belgilanadi
+                  qo'llab-quvvatlanadi. Oddiy test fayli yuklansa, platforma
+                  uni shablonga aylantiradi.
                 </p>
               </div>
 
@@ -139,13 +139,17 @@
                   <strong id="totalParsed">0</strong> ta savol topildi. Testda
                   tasodifiy <strong id="testCount">50</strong> tasi chiqadi.
                 </div>
+                <div class="alert alert-warning py-2 rounded-3 d-none" id="reviewNotice">
+                  <i class="fas fa-triangle-exclamation me-2"></i>
+                  To'g'ri javobi belgilanmagan savollar bor. Shablonni yuklab olishdan oldin javoblarni tanlang.
+                </div>
                 <div class="table-responsive rounded-3">
                   <table class="table table-bordered table-hover mb-0">
                     <thead class="table-light">
                       <tr>
                         <th style="width: 50px">#</th>
                         <th>Savol</th>
-                        <th style="width: 120px">To'g'ri javob</th>
+                        <th style="width: 180px">To'g'ri javob</th>
                       </tr>
                     </thead>
                     <tbody id="previewTable"></tbody>
@@ -171,6 +175,11 @@
                   <i class="fas fa-save me-2"></i>Saqlash va testni boshlash
                 </button>
                 <button
+                  class="btn btn-success btn-lg rounded-pill"
+                  onclick="downloadTemplate()">
+                  <i class="fas fa-download me-2"></i>Shablonni yuklab olish
+                </button>
+                <button
                   class="btn btn-outline-secondary btn-lg rounded-pill"
                   onclick="resetUpload()">
                   <i class="fas fa-redo me-2"></i>Qayta yuklash
@@ -183,27 +192,21 @@
           <div class="card border-0 shadow-sm rounded-4 mt-4">
             <div class="card-body p-4">
               <h6 class="fw-bold">
-                <i class="fas fa-info-circle text-info me-2"></i>Fayl formati
-                qanday bo'lishi kerak?
+                <i class="fas fa-info-circle text-info me-2"></i>Platforma
+                qanday shablon yaratadi?
               </h6>
               <div class="bg-light rounded-3 p-3 mt-3 font-monospace small">
-                1. Dunyoning eng katta qit'asi qaysi?<br />
-                A) Afrika<br />
-                B) Yevropa<br />
-                # C) Osiyo<br />
-                D) Amerika<br />
-                <br />
-                2. 2+2=?<br />
-                A) 3<br />
-                # B) 4<br />
-                C) 5<br />
-                D) 6
+                Savol matni<br /><br />
+                ====<br /><br />
+                # To'g'ri javob<br /><br />
+                ====<br /><br />
+                Boshqa variant<br /><br />
+                ++++
               </div>
               <p class="text-muted small mt-2 mb-0">
-                <code>#</code> belgisi variant <strong>oldida</strong> yoki
-                <strong>orqasida</strong> bo'lishi mumkin. Bo'sh qator
-                savollarni ajratadi.
-                <strong>.docx va .txt fayllari to'liq ishlaydi.</strong>
+                Ustoz oddiy Word fayl yuklaydi, platforma savol va variantlarni
+                ajratadi. To'g'ri javob tanlangach, tayyor shablon fayl yuklab
+                olinadi.
               </p>
             </div>
           </div>
@@ -224,6 +227,7 @@
 
       let parsedQuestions = [];
       let currentFileName = "";
+      let currentTemplateText = "";
       const uploadArea = document.getElementById("uploadArea");
       const fileInput = document.getElementById("fileInput");
 
@@ -265,6 +269,7 @@
           try {
             const formData = new FormData();
             formData.append("testFile", file);
+            formData.append("mode", "convert");
             const response = await fetch("/api/tests/upload", {
               method: "POST",
               body: formData,
@@ -274,6 +279,7 @@
               throw new Error(data.message || "Fayl tahlil qilinmadi");
             }
             parsedQuestions = data.questions;
+            currentTemplateText = data.templateText || "";
             showProcessing(false);
             afterParse(file.name);
             return;
@@ -363,6 +369,7 @@
           }
           currentFileName = "AI tahlil qilingan test";
           parsedQuestions = data.questions;
+          currentTemplateText = data.templateText || "";
           showProcessing(false);
           afterParse(currentFileName);
           showAlert("success", "AI matnni shablon testga aylantirdi.");
@@ -443,6 +450,12 @@
         document.getElementById("parsePreview").classList.remove("d-none");
         document.getElementById("subjectSection").classList.remove("d-none");
         document.getElementById("actionButtons").classList.remove("d-none");
+        document
+          .getElementById("reviewNotice")
+          .classList.toggle(
+            "d-none",
+            !parsedQuestions.some((question) => !question.correctAnswer),
+          );
         document.getElementById("totalParsed").textContent =
           parsedQuestions.length;
         const tc = Math.min(parsedQuestions.length, 50);
@@ -450,21 +463,18 @@
 
         const table = document.getElementById("previewTable");
         table.innerHTML = "";
-        const showCount = Math.min(parsedQuestions.length, 8);
+        const showCount = parsedQuestions.length;
 
         for (let i = 0; i < showCount; i++) {
           const q = parsedQuestions[i];
+          const answerControl = buildAnswerControl(q, i);
           table.innerHTML += `
             <tr class="preview-row">
               <td class="fw-bold">${i + 1}</td>
               <td class="text-truncate" style="max-width:300px;">${q.question}</td>
-              <td><span class="badge bg-success rounded-pill">${q.correctAnswer}</span></td>
+              <td>${answerControl}</td>
             </tr>
           `;
-        }
-
-        if (parsedQuestions.length > showCount) {
-          table.innerHTML += `<tr><td colspan="3" class="text-center text-muted small">... va yana ${parsedQuestions.length - showCount} ta savol</td></tr>`;
         }
 
         showAlert(
@@ -473,7 +483,87 @@
         );
       }
 
+      function buildAnswerControl(question, index) {
+        const options = question.options
+          .map(
+            (option) =>
+              `<option value="${option.letter}" ${option.letter === question.correctAnswer ? "selected" : ""}>${option.letter}</option>`,
+          )
+          .join("");
+
+        return `
+          <select class="form-select form-select-sm" onchange="setCorrectAnswer(${index}, this.value)">
+            <option value="">Tanlang</option>
+            ${options}
+          </select>
+        `;
+      }
+
+      function setCorrectAnswer(index, letter) {
+        parsedQuestions[index].correctAnswer = letter;
+        parsedQuestions[index].needsReview = !letter;
+        currentTemplateText = buildSeparatorTemplate(parsedQuestions);
+        document
+          .getElementById("reviewNotice")
+          .classList.toggle(
+            "d-none",
+            !parsedQuestions.some((question) => !question.correctAnswer),
+          );
+      }
+
+      function buildSeparatorTemplate(questions) {
+        return questions
+          .map((question) => {
+            const options = question.options
+              .map((option) => {
+                const prefix = option.letter === question.correctAnswer ? "# " : "";
+                return `${prefix}${option.text}`;
+              })
+              .join("\n\n====\n\n");
+            return `${question.question}\n\n====\n\n${options}`;
+          })
+          .join("\n\n++++\n\n");
+      }
+
+      function ensureAnswersSelected() {
+        const missing = parsedQuestions.filter((question) => !question.correctAnswer);
+        if (missing.length > 0) {
+          showAlert(
+            "warning",
+            `${missing.length} ta savolda to'g'ri javob tanlanmagan.`,
+          );
+          return false;
+        }
+        return true;
+      }
+
+      function downloadTemplate() {
+        if (parsedQuestions.length === 0) {
+          showAlert("warning", "Avval test faylini yuklang.");
+          return;
+        }
+        if (!ensureAnswersSelected()) return;
+
+        currentTemplateText = buildSeparatorTemplate(parsedQuestions);
+        const blob = new Blob([currentTemplateText], {
+          type: "text/plain;charset=utf-8",
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const safeName = (currentFileName || "test")
+          .replace(/\.[^.]+$/, "")
+          .replace(/[^\w\-]+/g, "_");
+        link.href = url;
+        link.download = `${safeName}_shablon.txt`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        showAlert("success", "Shablon fayl tayyor va yuklab olindi.");
+      }
+
       function saveTest() {
+        if (!ensureAnswersSelected()) return;
         const subject =
           document.getElementById("subjectInput").value.trim() || "Umumiy fan";
         const fileName = currentFileName || "Yuklangan test";
@@ -505,11 +595,13 @@
       function resetUpload() {
         parsedQuestions = [];
         currentFileName = "";
+        currentTemplateText = "";
         fileInput.value = "";
         document.getElementById("fileInfo").innerHTML = "";
         document.getElementById("parsePreview").classList.add("d-none");
         document.getElementById("subjectSection").classList.add("d-none");
         document.getElementById("actionButtons").classList.add("d-none");
+        document.getElementById("reviewNotice").classList.add("d-none");
         document.getElementById("subjectInput").value = "";
       }
 

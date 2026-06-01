@@ -1,7 +1,11 @@
 const mammoth = require("mammoth");
 const fs = require("fs");
 const { v4: uuidv4 } = require("uuid");
-const { parseTestQuestions, toTemplateText } = require("../utils/parser");
+const {
+  parseQuestionCandidates,
+  parseTestQuestions,
+  toTemplateText,
+} = require("../utils/parser");
 
 async function extractTextFromFile(filePath, originalName) {
   const ext = originalName.toLowerCase().split(".").pop();
@@ -36,7 +40,10 @@ exports.uploadTest = async (req, res) => {
 
     const rawText = await extractTextFromFile(filePath, req.file.originalname);
 
-    const questions = parseTestQuestions(rawText);
+    const isConvertMode = req.body?.mode === "convert";
+    const questions = isConvertMode
+      ? parseQuestionCandidates(rawText)
+      : parseTestQuestions(rawText);
 
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
 
@@ -50,7 +57,14 @@ exports.uploadTest = async (req, res) => {
       });
     }
 
-    res.json(buildParseResponse({ questions, fileName: req.file.originalname }));
+    res.json({
+      ...buildParseResponse({ questions, fileName: req.file.originalname }),
+      templateText: toTemplateText(
+        questions.filter((question) => question.correctAnswer),
+        "separator"
+      ),
+      needsReview: questions.some((question) => question.needsReview),
+    });
   } catch (error) {
     if (req.file && fs.existsSync(req.file.path)) {
       fs.unlinkSync(req.file.path);
@@ -64,7 +78,7 @@ exports.uploadTest = async (req, res) => {
 
 exports.normalizeText = (req, res) => {
   const rawText = req.body?.text || "";
-  const questions = parseTestQuestions(rawText);
+  const questions = parseQuestionCandidates(rawText);
 
   if (questions.length === 0) {
     return res.status(422).json({
@@ -74,7 +88,14 @@ exports.normalizeText = (req, res) => {
     });
   }
 
-  res.json(buildParseResponse({ questions, fileName: "AI tahlil qilingan matn" }));
+  res.json({
+    ...buildParseResponse({ questions, fileName: "AI tahlil qilingan matn" }),
+    templateText: toTemplateText(
+      questions.filter((question) => question.correctAnswer),
+      "separator"
+    ),
+    needsReview: questions.some((question) => question.needsReview),
+  });
 };
 
 exports.assist = (req, res) => {

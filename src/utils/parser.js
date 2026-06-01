@@ -19,7 +19,7 @@ function cleanQuestion(text = "") {
 
 function cleanOption(text = "") {
   return text
-    .replace(/\s*#\s*/g, " ")
+    .replace(/^\s*#(?!#)\s*/, "")
     .replace(/^\s*[A-Ha-h][\.)\:-]\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -38,6 +38,24 @@ function pushQuestion(questions, questionText, options, correctAnswer) {
       question: cleanQuestion(questionText),
       options: normalizedOptions,
       correctAnswer,
+    });
+  }
+}
+
+function pushCandidate(questions, questionText, options, correctAnswer = null) {
+  const normalizedOptions = options
+    .map((option, index) => ({
+      letter: option.letter || LETTERS[index],
+      text: cleanOption(option.text),
+    }))
+    .filter((option) => option.text);
+
+  if (questionText && normalizedOptions.length >= 2) {
+    questions.push({
+      question: cleanQuestion(questionText),
+      options: normalizedOptions,
+      correctAnswer,
+      needsReview: !correctAnswer,
     });
   }
 }
@@ -114,7 +132,9 @@ function parseNumberedFormat(text) {
 
       const letter = optionMatch[1].toUpperCase();
       options.push({ letter, text: optionMatch[2] });
-      if (line.includes("#")) correctAnswer = letter;
+      if (/^\s*#/.test(line) || /^[A-Ha-h][\.)\:-]\s*#/.test(line)) {
+        correctAnswer = letter;
+      }
     }
 
     pushQuestion(questions, questionLines.join(" "), options, correctAnswer);
@@ -147,10 +167,42 @@ function parseLooseNumberedFormat(text) {
 
       const letter = match[1] ? match[1].toUpperCase() : LETTERS[index];
       options.push({ letter, text: match[2] });
-      if (line.includes("#")) correctAnswer = letter;
+      if (/^\s*#/.test(line) || /^[A-Ha-h]?[\.)\:-]?\s*#/.test(line)) {
+        correctAnswer = letter;
+      }
     });
 
     pushQuestion(questions, questionText, options, correctAnswer);
+  }
+
+  return questions;
+}
+
+function parseCompactNumberedFormat(text) {
+  const questions = [];
+  const blocks = text
+    .split(/(?=^\s*\d+[\.)]\s+)/gm)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  for (const block of blocks) {
+    const compact = block.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+    const questionMatch = compact.match(/^\d+[\.)]\s*(.*?)(?=\s*[A-Da-d][\.)]\s*)/);
+    if (!questionMatch) continue;
+
+    const questionText = questionMatch[1].trim();
+    const optionText = compact.slice(questionMatch[0].length).trim();
+    const optionMatches = [...optionText.matchAll(/([A-Da-d])[\.)]\s*(.*?)(?=\s*[A-Da-d][\.)]\s*|$)/g)];
+    const options = [];
+    let correctAnswer = null;
+
+    for (const match of optionMatches) {
+      const letter = match[1].toUpperCase();
+      const text = match[2].trim();
+      options.push({ letter, text });
+    }
+
+    pushCandidate(questions, questionText, options, correctAnswer);
   }
 
   return questions;
@@ -172,10 +224,33 @@ function parseTestQuestions(rawText) {
     ...parseSeparatorFormat(text),
     ...parseNumberedFormat(text),
     ...parseLooseNumberedFormat(text),
+    ...parseCompactNumberedFormat(text).filter((question) => question.correctAnswer),
   ]);
 }
 
-function toTemplateText(questions) {
+function parseQuestionCandidates(rawText) {
+  const text = normalizeText(rawText);
+  return dedupeQuestions([
+    ...parseCompactNumberedFormat(text),
+    ...parseSeparatorFormat(text),
+    ...parseNumberedFormat(text),
+    ...parseLooseNumberedFormat(text),
+  ]);
+}
+
+function toTemplateText(questions, format = "numbered") {
+  if (format === "separator") {
+    return questions
+      .map((question) => {
+        const options = question.options.map((option) => {
+          const prefix = option.letter === question.correctAnswer ? "# " : "";
+          return `${prefix}${option.text}`;
+        });
+        return `${question.question}\n\n====\n\n${options.join("\n\n====\n\n")}`;
+      })
+      .join("\n\n++++\n\n");
+  }
+
   return questions
     .map((question, index) => {
       const options = question.options.map((option) => {
@@ -187,4 +262,4 @@ function toTemplateText(questions) {
     .join("\n\n");
 }
 
-module.exports = { parseTestQuestions, toTemplateText };
+module.exports = { parseQuestionCandidates, parseTestQuestions, toTemplateText };
