@@ -1,0 +1,260 @@
+/* ===========================
+   TestPlatform — Custom CSS
+   =========================== */
+
+:root {
+  --primary: #4361ee;
+  --primary-light: #eef0ff;
+  --success: #2ec4b6;
+  --warning: #ff9f1c;
+  --danger: #e71d36;
+  --dark: #1a1a2e;
+  --gray: #6c757d;
+  --light: #f8f9fa;
+  --border-radius: 1rem;
+}
+
+body {
+  background-color: #f0f2f5;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Auth Pages */
+.auth-page {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.auth-logo {
+  width: 80px;
+  height: 80px;
+  background: var(--primary-light);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Dashboard */
+.stat-card:hover {
+  transform: translateY(-3px);
+  transition: transform 0.3s ease;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Upload Area */
+.upload-area {
+  border: 2px dashed #dee2e6;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+/* Test Page */
+.option-btn {
+  border: 2px solid #dee2e6;
+  transition: all 0.2s ease;
+}
+
+.option-btn:hover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.option-btn.selected {
+  border-color: var(--primary);
+  background-color: var(--primary);
+  color: white;
+}
+
+.option-btn.selected .badge {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+/* Question Navigator */
+.q-nav-btn {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.q-nav-btn.btn-success {
+  background-color: #198754;
+  border-color: #198754;
+  color: white;
+}
+
+/* Result Page */
+#resultCard {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+/* Utility */
+.rounded-3 {
+  border-radius: var(--border-radius) !important;
+}
+.rounded-4 {
+  border-radius: 1.25rem !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .auth-card .card-body {
+    padding: 2rem !important;
+  }
+
+  .stat-card .card-body {
+    padding: 1.5rem !important;
+  }
+
+  .option-btn {
+    font-size: 0.9rem;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.5s ease;
+}
+
+/* AI Assistant */
+#aiAssistantWidget .ai-fab {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  z-index: 1050;
+  box-shadow: 0 10px 28px rgba(67, 97, 238, 0.35);
+}
+
+#aiAssistantWidget .ai-panel {
+  position: fixed;
+  right: 22px;
+  bottom: 88px;
+  width: min(380px, calc(100vw - 32px));
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  z-index: 1050;
+  border: 1px solid #e9ecef;
+}
+
+.ai-panel-header {
+  background: var(--primary);
+  color: #fff;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-panel-header small {
+  display: block;
+  opacity: 0.85;
+}
+
+.ai-messages {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ai-msg {
+  padding: 9px 11px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.ai-msg-bot {
+  background: #f1f3f5;
+  color: #212529;
+  align-self: flex-start;
+}
+
+.ai-msg-user {
+  background: var(--primary-light);
+  color: var(--dark);
+  align-self: flex-end;
+}
+
+.ai-form {
+  border-top: 1px solid #e9ecef;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 44px;
+  gap: 8px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
