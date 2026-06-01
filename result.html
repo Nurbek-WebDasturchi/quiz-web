@@ -39,6 +39,7 @@
               </div>
               <h2 class="fw-bold mb-1" id="resultGrade">Zo'r!</h2>
               <p class="text-muted mb-4" id="resultSubject">Fan nomi</p>
+              <p class="fw-semibold mb-4" id="resultMotivation"></p>
 
               <div class="row g-3 mb-4">
                 <div class="col-4">
@@ -154,26 +155,32 @@
         result.percentage + "%";
 
       // Score color & grade
-      let scoreColor, grade, icon;
+      let scoreColor, grade, icon, motivation;
       if (result.percentage >= 90) {
         scoreColor = "#198754";
-        grade = "A'lo! 🎉";
+        grade = "A'lo!";
         icon = "fa-trophy";
+        motivation = "Shu tempni ushla. Keyingi testda ham shunday davom et.";
       } else if (result.percentage >= 75) {
         scoreColor = "#0d6efd";
-        grade = "Yaxshi! 👍";
+        grade = "Yaxshi!";
         icon = "fa-star";
+        motivation = "Natija yaxshi. Bir oz takrorlasang, a'lo darajaga chiqasan.";
       } else if (result.percentage >= 60) {
         scoreColor = "#ffc107";
-        grade = "Qoniqarli 📚";
+        grade = "Qoniqarli";
         icon = "fa-book";
+        motivation = "Asos bor. Xato javoblarni ko'rib chiq, keyingi urinish ancha kuchli bo'ladi.";
       } else {
         scoreColor = "#dc3545";
-        grade = "Qayta urinib ko'ring 💪";
+        grade = "Yana bir urinib ko'ring";
         icon = "fa-redo";
+        motivation = "Bu yakuniy baho emas. Xatolarni ko'r, qisqa takrorla va yana urinib ko'r.";
       }
 
       document.getElementById("resultGrade").textContent = grade;
+      document.getElementById("resultMotivation").textContent = motivation;
+      document.getElementById("resultMotivation").style.color = scoreColor;
       document.getElementById("resultIcon").className = `fas ${icon} fa-4x`;
       document.getElementById("resultIcon").style.color = scoreColor;
       document.getElementById("resultPercentage").style.color = scoreColor;
@@ -187,6 +194,32 @@
           circumference - (result.percentage / 100) * circumference;
         document.getElementById("scoreCircle").style.strokeDashoffset = offset;
       }, 300);
+
+      function playResultTone() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          const ctx = new AudioCtx();
+          const now = ctx.currentTime;
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.07, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+          gain.connect(ctx.destination);
+
+          const tones =
+            result.percentage >= 75 ? [523.25, 659.25, 783.99] : [392, 440, 523.25];
+          tones.forEach((frequency, index) => {
+            const oscillator = ctx.createOscillator();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(frequency, now + index * 0.08);
+            oscillator.connect(gain);
+            oscillator.start(now + index * 0.08);
+            oscillator.stop(now + index * 0.08 + 0.16);
+          });
+        } catch (error) {}
+      }
+
+      setTimeout(playResultTone, 450);
 
       // Review answers
       function reviewAnswers() {

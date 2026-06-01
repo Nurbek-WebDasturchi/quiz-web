@@ -84,14 +84,14 @@ function initAiAssistant() {
   const widget = document.createElement("div");
   widget.id = "aiAssistantWidget";
   widget.innerHTML = `
-    <button class="ai-fab" type="button" aria-label="AI assistant">
+    <button class="ai-fab" type="button" aria-label="Yordamchi">
       <i class="fas fa-wand-magic-sparkles"></i>
     </button>
     <div class="ai-panel shadow-lg d-none">
       <div class="ai-panel-header">
         <div>
-          <strong>AI assistant</strong>
-          <small>Test va shablon yordamchisi</small>
+          <strong>Yordamchi</strong>
+          <small>Test va shablon bo'yicha ko'mak</small>
         </div>
         <button type="button" class="btn-close btn-close-white ai-close" aria-label="Yopish"></button>
       </div>
@@ -135,7 +135,7 @@ function initAiAssistant() {
     } catch (error) {
       appendAiMessage(
         messages,
-        "Serverga ulana olmadim. Savollarni yuklash sahifasidagi AI tahlil maydonida ham sinab ko'ring.",
+        "Serverga ulana olmadim. Savollarni yuklash sahifasidagi tahlil maydonida ham sinab ko'ring.",
         "bot"
       );
     }

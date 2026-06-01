@@ -104,8 +104,8 @@
 
               <div class="mt-4">
                 <label class="form-label fw-semibold">
-                  <i class="fas fa-wand-magic-sparkles text-primary me-1"></i>AI
-                  orqali matndan shablon qilish
+                  <i class="fas fa-wand-magic-sparkles text-primary me-1"></i>
+                  Matndan shablon tayyorlash
                 </label>
                 <textarea
                   class="form-control"
@@ -117,7 +117,7 @@
                     class="btn btn-outline-primary rounded-pill"
                     type="button"
                     onclick="normalizeTextWithAi()">
-                    <i class="fas fa-magic me-1"></i>AI tahlil qilish
+                    <i class="fas fa-magic me-1"></i>Tahlil qilish
                   </button>
                   <button
                     class="btn btn-outline-secondary rounded-pill"
@@ -287,7 +287,7 @@
             showProcessing(false);
             showAlert(
               "warning",
-              "Server AI tahlili ishlamadi, brauzerda qayta urinib ko'ramiz: " +
+              "Server tahlili ishlamadi, brauzerda qayta urinib ko'ramiz: " +
                 error.message,
             );
           }
@@ -341,7 +341,7 @@
         if (parsedQuestions.length === 0) {
           showAlert(
             "warning",
-            "Savollar topilmadi. Fayl formatini tekshiring (# belgisi kerak).",
+            "Savollar topilmadi. Faylda savollar 1., 2. tartibida va variantlar A), B), C), D) ko'rinishida bo'lishi kerak.",
           );
           resetUpload();
           return;
@@ -367,12 +367,12 @@
           if (!response.ok || !data.success) {
             throw new Error(data.message || "Matn tahlil qilinmadi");
           }
-          currentFileName = "AI tahlil qilingan test";
+          currentFileName = "Tahlil qilingan test";
           parsedQuestions = data.questions;
           currentTemplateText = data.templateText || "";
           showProcessing(false);
           afterParse(currentFileName);
-          showAlert("success", "AI matnni shablon testga aylantirdi.");
+          showAlert("success", "Matn shablon testga aylantirildi.");
         } catch (error) {
           showProcessing(false);
           showAlert("danger", error.message);
@@ -407,6 +407,41 @@
           });
           return questions;
         }
+
+        const compactBlocks = text
+          .split(/(?=^\s*\d+[\.\)]\s+)/gm)
+          .map((block) => block.trim())
+          .filter(Boolean);
+
+        compactBlocks.forEach((block) => {
+          const compact = block.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
+          const questionMatch = compact.match(/^\d+[\.\)]\s*(.*?)(?=\s*[A-Da-d][\.\)]\s*)/);
+          if (!questionMatch) return;
+
+          const questionText = questionMatch[1].trim();
+          const optionText = compact.slice(questionMatch[0].length).trim();
+          const optionMatches = [
+            ...optionText.matchAll(/([A-Da-d])[\.\)]\s*(.*?)(?=\s*[A-Da-d][\.\)]\s*|$)/g),
+          ];
+          const options = optionMatches
+            .map((match) => ({
+              letter: match[1].toUpperCase(),
+              text: match[2].replace(/^\s*#(?!#)\s*/, "").trim(),
+            }))
+            .filter((option) => option.text);
+
+          if (questionText && options.length >= 2) {
+            questions.push({
+              question: questionText,
+              options,
+              correctAnswer: "",
+              needsReview: true,
+            });
+          }
+        });
+
+        if (questions.length > 0) return questions;
+
         // Split by blank lines
         const blocks = text
           .split(/(?=\n?\s*\d+[\.\)]\s+)/)
@@ -437,8 +472,13 @@
             }
           }
 
-          if (questionText && options.length >= 2 && correctAnswer) {
-            questions.push({ question: questionText, options, correctAnswer });
+          if (questionText && options.length >= 2) {
+            questions.push({
+              question: questionText,
+              options,
+              correctAnswer,
+              needsReview: !correctAnswer,
+            });
           }
         });
 

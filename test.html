@@ -21,7 +21,7 @@
         text-align: left;
         font-size: 1rem;
         padding: 0.85rem 1.2rem;
-        border-radius: 0.75rem !important;
+        border-radius: 0.5rem !important;
         cursor: pointer;
         background: #fff;
         color: #212529;
@@ -74,7 +74,7 @@
         padding: 0;
         font-size: 0.8rem;
         font-weight: 600;
-        border-radius: 50% !important;
+        border-radius: 0.45rem !important;
       }
     </style>
   </head>
@@ -225,6 +225,38 @@
       let timerInterval;
       const TOTAL_SECONDS = 50 * 60; // 50 minutes
       let timeLeft = TOTAL_SECONDS;
+      let audioContext;
+
+      function playTone(type = "tap") {
+        try {
+          audioContext =
+            audioContext || new (window.AudioContext || window.webkitAudioContext)();
+          const now = audioContext.currentTime;
+          const gain = audioContext.createGain();
+          gain.gain.setValueAtTime(0.0001, now);
+          gain.gain.exponentialRampToValueAtTime(0.08, now + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+          gain.connect(audioContext.destination);
+
+          const tones =
+            type === "finish"
+              ? [523.25, 659.25, 783.99]
+              : type === "move"
+                ? [440, 554.37]
+                : [659.25, 880];
+
+          tones.forEach((frequency, index) => {
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = "sine";
+            oscillator.frequency.setValueAtTime(frequency, now + index * 0.055);
+            oscillator.connect(gain);
+            oscillator.start(now + index * 0.055);
+            oscillator.stop(now + index * 0.055 + 0.12);
+          });
+        } catch (error) {
+          // Sound feedback is optional; ignore browsers that block it.
+        }
+      }
 
       // Build question navigator
       const navContainer = document.getElementById("questionNav");
@@ -276,6 +308,7 @@
 
       function selectAnswer(letter) {
         answers[currentQ] = letter;
+        playTone("tap");
 
         // Update only the visual state of buttons — NO re-render (no re-shuffle)
         document.querySelectorAll(".option-btn").forEach((btn) => {
@@ -293,6 +326,7 @@
       function nextQuestion() {
         if (currentQ < totalQ - 1) {
           currentQ++;
+          playTone("move");
           renderQuestion();
         }
       }
@@ -300,12 +334,14 @@
       function prevQuestion() {
         if (currentQ > 0) {
           currentQ--;
+          playTone("move");
           renderQuestion();
         }
       }
 
       function goToQuestion(idx) {
         currentQ = idx;
+        playTone("move");
         renderQuestion();
       }
 
@@ -362,6 +398,7 @@
       // ================= FINISH =================
       function finishTest() {
         clearInterval(timerInterval);
+        playTone("finish");
 
         let correct = 0,
           wrong = 0;
@@ -411,7 +448,9 @@
         );
         localStorage.setItem("currentResult", JSON.stringify(result));
 
-        window.location.href = "result.html";
+        setTimeout(() => {
+          window.location.href = "result.html";
+        }, 220);
       }
 
       // ================= INIT =================
