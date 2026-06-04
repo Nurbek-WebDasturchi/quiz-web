@@ -229,6 +229,14 @@
         container.innerHTML = "";
 
         result.details.forEach((d, i) => {
+          const userAnswerText =
+            d.userAnswerText ||
+            d.options?.find((option) => option.letter === d.userAnswer)?.text ||
+            "Javob yo'q";
+          const correctAnswerText =
+            d.correctAnswerText ||
+            d.options?.find((option) => option.letter === d.correctAnswer)?.text ||
+            d.correctAnswer;
           const statusClass = d.isCorrect ? "border-success" : "border-danger";
           const statusBadge = d.isCorrect
             ? '<span class="badge bg-success"><i class="fas fa-check me-1"></i>To\'g\'ri</span>'
@@ -242,8 +250,8 @@
                 ${statusBadge}
               </div>
               <div class="small">
-                <div>Sizning javob: <strong class="${d.isCorrect ? "text-success" : "text-danger"}">${d.userAnswer || "Javob yo'q"}</strong></div>
-                ${!d.isCorrect ? `<div class="mt-1">To'g'ri javob: <strong class="text-success">${d.correctAnswer}</strong></div>` : ""}
+                <div>Sizning javob: <strong class="${d.isCorrect ? "text-success" : "text-danger"}">${userAnswerText}</strong></div>
+                ${!d.isCorrect ? `<div class="mt-1">To'g'ri javob: <strong class="text-success">${correctAnswerText}</strong></div>` : ""}
               </div>
             </div>
           </div>

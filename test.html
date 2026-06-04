@@ -35,27 +35,24 @@
         border-color: #4361ee;
         background: #eef0ff;
       }
+      .option-btn:disabled {
+        cursor: default;
+        opacity: 1;
+      }
       .option-btn.selected {
         border-color: #4361ee !important;
         background: #4361ee !important;
         color: #fff !important;
       }
-      .option-btn.selected .opt-badge {
-        background: rgba(255, 255, 255, 0.25) !important;
-        color: #fff !important;
+      .option-btn.correct {
+        border-color: #198754 !important;
+        background: #d1e7dd !important;
+        color: #0f5132 !important;
       }
-      .opt-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        font-weight: 700;
-        font-size: 0.85rem;
-        background: #f0f2f5;
-        color: #4361ee;
-        flex-shrink: 0;
+      .option-btn.incorrect {
+        border-color: #dc3545 !important;
+        background: #f8d7da !important;
+        color: #842029 !important;
       }
       #timer {
         font-size: 1.6rem;
@@ -115,7 +112,7 @@
             <div
               class="card-body p-3 d-flex flex-column justify-content-center">
               <div class="d-flex justify-content-between mb-1">
-                <small class="fw-semibold">Javob berilgan savollar</small>
+                <small class="fw-semibold" id="stageLabel">Bosqich 1</small>
                 <small class="text-primary fw-bold" id="progressText"
                   >0 / 0</small
                 >
@@ -169,7 +166,7 @@
                 <button
                   class="btn btn-success rounded-pill px-4 d-none"
                   id="finishBtn"
-                  onclick="finishTest()">
+                  onclick="finishStage()">
                   <i class="fas fa-check me-1"></i>Tugatish
                 </button>
               </div>
@@ -210,21 +207,26 @@
       document.getElementById("testSubject").textContent = test.subject;
 
       // Prepare questions — shuffle ORDER of questions, but fix option order per question
-      const allQuestions = test.questions;
-      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
-      const selectedQuestions = shuffled.slice(0, 50);
-      const totalQ = selectedQuestions.length;
+      const QUESTIONS_PER_STAGE = 50;
+      const STAGE_SECONDS = 50 * 60;
+      const allQuestions = [...test.questions].sort(() => Math.random() - 0.5);
+      const stages = [];
+      for (let i = 0; i < allQuestions.length; i += QUESTIONS_PER_STAGE) {
+        stages.push(allQuestions.slice(i, i + QUESTIONS_PER_STAGE));
+      }
 
-      // For each question, store its shuffled options ONCE so they never re-shuffle on re-render
-      const questionOptions = selectedQuestions.map((q) => {
-        return [...q.options].sort(() => Math.random() - 0.5);
-      });
+      const questionOptionsByStage = stages.map((stage) =>
+        stage.map((q) => [...q.options].sort(() => Math.random() - 0.5)),
+      );
+      const answersByStage = stages.map((stage) =>
+        new Array(stage.length).fill(null),
+      );
+      const stageDurations = new Array(stages.length).fill(0);
 
+      let currentStage = 0;
       let currentQ = 0;
-      let answers = new Array(totalQ).fill(null);
       let timerInterval;
-      const TOTAL_SECONDS = 50 * 60; // 50 minutes
-      let timeLeft = TOTAL_SECONDS;
+      let timeLeft = STAGE_SECONDS;
       let audioContext;
 
       function playTone(type = "tap") {
@@ -239,11 +241,13 @@
           gain.connect(audioContext.destination);
 
           const tones =
-            type === "finish"
-              ? [523.25, 659.25, 783.99]
-              : type === "move"
-                ? [440, 554.37]
-                : [659.25, 880];
+            {
+              success: [523.25, 659.25, 783.99],
+              fail: [220, 185, 164.81],
+              finish: [523.25, 659.25, 783.99],
+              move: [440, 554.37],
+              tap: [659.25, 880],
+            }[type] || [659.25, 880];
 
           tones.forEach((frequency, index) => {
             const oscillator = audioContext.createOscillator();
@@ -260,34 +264,84 @@
 
       // Build question navigator
       const navContainer = document.getElementById("questionNav");
-      for (let i = 0; i < totalQ; i++) {
-        const btn = document.createElement("button");
-        btn.className = "btn btn-sm q-nav-btn btn-outline-secondary";
-        btn.dataset.index = i;
-        btn.textContent = i + 1;
-        btn.onclick = () => goToQuestion(i);
-        navContainer.appendChild(btn);
+      function getStageQuestions() {
+        return stages[currentStage];
+      }
+
+      function getStageOptions() {
+        return questionOptionsByStage[currentStage];
+      }
+
+      function getStageAnswers() {
+        return answersByStage[currentStage];
+      }
+
+      function getTotalAnswered() {
+        return answersByStage.reduce(
+          (sum, answers) =>
+            sum + answers.filter((answer) => answer !== null).length,
+          0,
+        );
+      }
+
+      function getStageStartIndex(stageIndex = currentStage) {
+        return stages
+          .slice(0, stageIndex)
+          .reduce((sum, stage) => sum + stage.length, 0);
+      }
+
+      function vibrate(pattern) {
+        if ("vibrate" in navigator) navigator.vibrate(pattern);
+      }
+
+      function buildQuestionNavigator() {
+        navContainer.innerHTML = "";
+        getStageQuestions().forEach((_, i) => {
+          const btn = document.createElement("button");
+          btn.className = "btn btn-sm q-nav-btn btn-outline-secondary";
+          btn.dataset.index = i;
+          btn.textContent = i + 1;
+          btn.onclick = () => goToQuestion(i);
+          navContainer.appendChild(btn);
+        });
       }
 
       function renderQuestion() {
-        const q = selectedQuestions[currentQ];
+        const stageQuestions = getStageQuestions();
+        const totalQ = stageQuestions.length;
+        const stageAnswers = getStageAnswers();
+        const q = stageQuestions[currentQ];
+        const globalQuestionNumber = getStageStartIndex() + currentQ + 1;
+
         document.getElementById("questionNumber").textContent =
-          `Savol ${currentQ + 1}`;
+          `Savol ${globalQuestionNumber}`;
         document.getElementById("questionCount").textContent =
           `${currentQ + 1} / ${totalQ}`;
         document.getElementById("questionText").textContent = q.question;
+        document.getElementById("stageLabel").textContent =
+          stages.length > 1
+            ? `Bosqich ${currentStage + 1} / ${stages.length}`
+            : "Javob berilgan savollar";
 
         // Use the PRE-SHUFFLED options for this question (never re-shuffle)
-        const opts = questionOptions[currentQ];
+        const opts = getStageOptions()[currentQ];
         const container = document.getElementById("optionsContainer");
         container.innerHTML = "";
 
         opts.forEach((opt) => {
-          const isSelected = answers[currentQ] === opt.letter;
+          const selectedLetter = stageAnswers[currentQ];
+          const isSelected = selectedLetter === opt.letter;
+          const isAnswered = selectedLetter !== null;
+          const isCorrectOption = opt.letter === q.correctAnswer;
+          const isWrongSelected = isAnswered && isSelected && !isCorrectOption;
           const btn = document.createElement("button");
-          btn.className = "option-btn" + (isSelected ? " selected" : "");
+          btn.className = "option-btn";
+          if (!isAnswered && isSelected) btn.classList.add("selected");
+          if (isAnswered && isCorrectOption) btn.classList.add("correct");
+          if (isWrongSelected) btn.classList.add("incorrect");
           btn.dataset.letter = opt.letter;
-          btn.innerHTML = `<span class="opt-badge">${opt.letter}</span><span>${opt.text}</span>`;
+          btn.innerHTML = `<span>${opt.text}</span>`;
+          btn.disabled = isAnswered;
           btn.onclick = () => selectAnswer(opt.letter);
           container.appendChild(btn);
         });
@@ -307,24 +361,23 @@
       }
 
       function selectAnswer(letter) {
-        answers[currentQ] = letter;
-        playTone("tap");
+        const stageAnswers = getStageAnswers();
+        if (stageAnswers[currentQ] !== null) return;
 
-        // Update only the visual state of buttons — NO re-render (no re-shuffle)
-        document.querySelectorAll(".option-btn").forEach((btn) => {
-          if (btn.dataset.letter === letter) {
-            btn.classList.add("selected");
-          } else {
-            btn.classList.remove("selected");
-          }
-        });
+        const question = getStageQuestions()[currentQ];
+        const isCorrect = letter === question.correctAnswer;
+        stageAnswers[currentQ] = letter;
+        playTone(isCorrect ? "success" : "fail");
+        vibrate(isCorrect ? 60 : [90, 50, 120]);
+
+        renderQuestion();
 
         updateProgress();
         updateNav();
       }
 
       function nextQuestion() {
-        if (currentQ < totalQ - 1) {
+        if (currentQ < getStageQuestions().length - 1) {
           currentQ++;
           playTone("move");
           renderQuestion();
@@ -346,19 +399,23 @@
       }
 
       function updateProgress() {
-        const answered = answers.filter((a) => a !== null).length;
-        const pct = (answered / totalQ) * 100;
+        const stageAnswers = getStageAnswers();
+        const answered = stageAnswers.filter((a) => a !== null).length;
+        const pct = (answered / stageAnswers.length) * 100;
         document.getElementById("progressBar").style.width = pct + "%";
         document.getElementById("progressText").textContent =
-          `${answered} / ${totalQ}`;
+          stages.length > 1
+            ? `${answered} / ${stageAnswers.length} (jami ${getTotalAnswered()} / ${allQuestions.length})`
+            : `${answered} / ${stageAnswers.length}`;
       }
 
       function updateNav() {
+        const stageAnswers = getStageAnswers();
         document.querySelectorAll(".q-nav-btn").forEach((btn) => {
           const idx = parseInt(btn.dataset.index);
           btn.className = "btn btn-sm q-nav-btn";
           if (idx === currentQ) btn.classList.add("btn-primary");
-          else if (answers[idx] !== null) btn.classList.add("btn-success");
+          else if (stageAnswers[idx] !== null) btn.classList.add("btn-success");
           else btn.classList.add("btn-outline-secondary");
         });
       }
@@ -383,42 +440,90 @@
       }
 
       function startTimer() {
+        clearInterval(timerInterval);
         updateTimerDisplay();
         timerInterval = setInterval(() => {
           timeLeft--;
           updateTimerDisplay();
           if (timeLeft <= 0) {
             clearInterval(timerInterval);
-            alert("⏰ Vaqt tugadi! Test avtomatik yakunlanmoqda...");
-            finishTest();
+            alert("Vaqt tugadi! Bosqich avtomatik yakunlanmoqda...");
+            finishStage();
           }
         }, 1000);
       }
 
       // ================= FINISH =================
+      function finishStage() {
+        clearInterval(timerInterval);
+        stageDurations[currentStage] = STAGE_SECONDS - timeLeft;
+
+        if (currentStage < stages.length - 1) {
+          playTone("finish");
+          const nextStage = currentStage + 2;
+          const shouldContinue = confirm(
+            `Bosqich ${currentStage + 1} tugadi. Keyingi bosqich (${nextStage}/${stages.length}) boshlansinmi?`,
+          );
+
+          if (shouldContinue) {
+            currentStage++;
+            currentQ = 0;
+            timeLeft = STAGE_SECONDS;
+            buildQuestionNavigator();
+            renderQuestion();
+            startTimer();
+          } else {
+            finishTest();
+          }
+          return;
+        }
+
+        finishTest();
+      }
+
       function finishTest() {
         clearInterval(timerInterval);
+        stageDurations[currentStage] = Math.max(
+          stageDurations[currentStage],
+          STAGE_SECONDS - timeLeft,
+        );
         playTone("finish");
 
         let correct = 0,
-          wrong = 0;
+          wrong = 0,
+          unanswered = 0;
         const details = [];
 
-        selectedQuestions.forEach((q, i) => {
-          const isCorrect = answers[i] === q.correctAnswer;
-          if (isCorrect) correct++;
-          else wrong++;
-          details.push({
-            question: q.question,
-            userAnswer: answers[i],
-            correctAnswer: q.correctAnswer,
-            isCorrect,
-            options: questionOptions[i], // use the displayed order
+        stages.forEach((stage, stageIndex) => {
+          stage.forEach((q, questionIndex) => {
+            const userAnswer = answersByStage[stageIndex][questionIndex];
+            const isCorrect = userAnswer === q.correctAnswer;
+            if (isCorrect) correct++;
+            else if (userAnswer === null) unanswered++;
+            else wrong++;
+
+            details.push({
+              question: q.question,
+              userAnswer,
+              correctAnswer: q.correctAnswer,
+              userAnswerText:
+                q.options.find((option) => option.letter === userAnswer)?.text ||
+                null,
+              correctAnswerText:
+                q.options.find((option) => option.letter === q.correctAnswer)
+                  ?.text || "",
+              isCorrect,
+              options: questionOptionsByStage[stageIndex][questionIndex],
+              stage: stageIndex + 1,
+            });
           });
         });
 
-        const percentage = Math.round((correct / totalQ) * 100);
-        const timeSpent = TOTAL_SECONDS - timeLeft;
+        const percentage = Math.round((correct / allQuestions.length) * 100);
+        const timeSpent = stageDurations.reduce(
+          (sum, duration) => sum + duration,
+          0,
+        );
         const minutes = Math.floor(timeSpent / 60);
         const seconds = timeSpent % 60;
 
@@ -426,15 +531,16 @@
           resultId: "result_" + Date.now(),
           testId: test.id,
           subject: test.subject,
-          totalQuestions: totalQ,
+          totalQuestions: allQuestions.length,
+          totalStages: stages.length,
           correct,
           wrong,
-          unanswered: totalQ - correct - wrong,
+          unanswered,
           percentage,
           timeSpent: `${minutes}m ${seconds}s`,
           details,
-          answers,
-          selectedQuestions,
+          answers: answersByStage.flat(),
+          selectedQuestions: allQuestions,
           completedAt: new Date().toISOString(),
         };
 
@@ -454,6 +560,7 @@
       }
 
       // ================= INIT =================
+      buildQuestionNavigator();
       renderQuestion();
       startTimer();
     </script>
