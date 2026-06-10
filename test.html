@@ -123,6 +123,19 @@
         color: #27346f;
         font-weight: 700;
       }
+      .start-ready-btn {
+        width: 100%;
+        border: 0;
+        border-radius: 0.55rem;
+        padding: 0.85rem 1rem;
+        background: #4361ee;
+        color: #fff;
+        font-weight: 800;
+        box-shadow: 0 10px 24px rgba(67, 97, 238, 0.28);
+      }
+      .start-ready-btn:hover {
+        background: #334bd6;
+      }
       .start-modal-card p {
         line-height: 1.45;
       }
@@ -318,6 +331,9 @@
           <p class="text-muted mb-0">
             Ishlasang ishlaganing, bo'lmasa kreditga qolasan. Kayfiyatni ko'tar, lekin timer hazillashmaydi.
           </p>
+          <button class="start-ready-btn mt-3" type="button" id="startReadyBtn">
+            Tushundim, davay
+          </button>
         </div>
       </div>
     </div>
@@ -366,7 +382,7 @@
       const allQuestions = shuffleItems(test.questions).map(normalizeQuestionOptions);
       const stages = [allQuestions];
       const SECONDS_PER_QUESTION = 10;
-      const START_COUNTDOWN_SECONDS = 5;
+      const START_COUNTDOWN_SECONDS = 10;
       const STAGE_SECONDS = Math.max(1, allQuestions.length * SECONDS_PER_QUESTION);
 
       const questionOptionsByStage = stages.map((stage) =>
@@ -381,6 +397,7 @@
       let currentQ = 0;
       let timerInterval;
       let startCountdownInterval;
+      let testStarted = false;
       let timeLeft = STAGE_SECONDS;
       let audioContext;
 
@@ -614,6 +631,7 @@
       function showStartModal() {
         const modal = document.getElementById("startModal");
         const countdownEl = document.getElementById("startCountdown");
+        const readyBtn = document.getElementById("startReadyBtn");
         const totalTimeText = formatDuration(STAGE_SECONDS);
         let countdown = START_COUNTDOWN_SECONDS;
 
@@ -623,15 +641,22 @@
         modal.classList.remove("d-none");
         updateTimerDisplay();
 
+        const beginTest = () => {
+          if (testStarted) return;
+          testStarted = true;
+          clearInterval(startCountdownInterval);
+          modal.classList.add("d-none");
+          playTone("finish");
+          startTimer();
+        };
+
+        readyBtn.onclick = beginTest;
         clearInterval(startCountdownInterval);
         startCountdownInterval = setInterval(() => {
           countdown--;
           countdownEl.textContent = countdown;
           if (countdown <= 0) {
-            clearInterval(startCountdownInterval);
-            modal.classList.add("d-none");
-            playTone("finish");
-            startTimer();
+            beginTest();
           }
         }, 1000);
       }
