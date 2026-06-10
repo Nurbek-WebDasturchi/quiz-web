@@ -25,15 +25,31 @@ function cleanOption(text = "") {
     .trim();
 }
 
-function pushQuestion(questions, questionText, options, correctAnswer) {
-  const normalizedOptions = options
+function pickFourOptions(options, correctAnswer) {
+  const cleaned = options
     .map((option, index) => ({
       letter: option.letter || LETTERS[index],
       text: cleanOption(option.text),
     }))
     .filter((option) => option.text);
 
-  if (questionText && normalizedOptions.length >= 2 && correctAnswer) {
+  if (cleaned.length < 4) return [];
+
+  const firstFour = cleaned.slice(0, 4);
+  if (!correctAnswer || firstFour.some((option) => option.letter === correctAnswer)) {
+    return firstFour;
+  }
+
+  const correctOption = cleaned.find((option) => option.letter === correctAnswer);
+  if (!correctOption) return firstFour;
+
+  return [...firstFour.slice(0, 3), correctOption];
+}
+
+function pushQuestion(questions, questionText, options, correctAnswer) {
+  const normalizedOptions = pickFourOptions(options, correctAnswer);
+
+  if (questionText && normalizedOptions.length === 4 && correctAnswer) {
     questions.push({
       question: cleanQuestion(questionText),
       options: normalizedOptions,
@@ -43,14 +59,9 @@ function pushQuestion(questions, questionText, options, correctAnswer) {
 }
 
 function pushCandidate(questions, questionText, options, correctAnswer = null) {
-  const normalizedOptions = options
-    .map((option, index) => ({
-      letter: option.letter || LETTERS[index],
-      text: cleanOption(option.text),
-    }))
-    .filter((option) => option.text);
+  const normalizedOptions = pickFourOptions(options, correctAnswer);
 
-  if (questionText && normalizedOptions.length >= 2) {
+  if (questionText && normalizedOptions.length === 4) {
     questions.push({
       question: cleanQuestion(questionText),
       options: normalizedOptions,
@@ -187,19 +198,22 @@ function parseCompactNumberedFormat(text) {
 
   for (const block of blocks) {
     const compact = block.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
-    const questionMatch = compact.match(/^\d+[\.)]\s*(.*?)(?=\s*[A-Da-d][\.)]\s*)/);
+    const questionMatch = compact.match(/^\d+[\.)]\s*(.*?)(?=\s*#?\s*[A-Da-d][\.)]\s*)/);
     if (!questionMatch) continue;
 
     const questionText = questionMatch[1].trim();
     const optionText = compact.slice(questionMatch[0].length).trim();
-    const optionMatches = [...optionText.matchAll(/([A-Da-d])[\.)]\s*(.*?)(?=\s*[A-Da-d][\.)]\s*|$)/g)];
+    const optionMatches = [
+      ...optionText.matchAll(/(#\s*)?([A-Da-d])[\.)]\s*(.*?)(?=\s*#?\s*[A-Da-d][\.)]\s*|$)/g),
+    ];
     const options = [];
     let correctAnswer = null;
 
     for (const match of optionMatches) {
-      const letter = match[1].toUpperCase();
-      const text = match[2].trim();
+      const letter = match[2].toUpperCase();
+      const text = match[3].trim();
       options.push({ letter, text });
+      if (match[1]) correctAnswer = letter;
     }
 
     pushCandidate(questions, questionText, options, correctAnswer);

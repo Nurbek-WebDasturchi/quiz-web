@@ -29,6 +29,30 @@
       #processingBadge {
         display: none;
       }
+      @media (max-width: 576px) {
+        .upload-card-body {
+          padding: 1rem !important;
+        }
+        .upload-area {
+          padding: 1.25rem !important;
+        }
+        .upload-area .fa-file-word {
+          font-size: 2.4rem;
+        }
+        #actionButtons {
+          display: grid !important;
+          grid-template-columns: 1fr;
+        }
+        #actionButtons.d-none {
+          display: none !important;
+        }
+        #actionButtons .btn {
+          width: 100%;
+        }
+        #previewTable {
+          font-size: 0.85rem;
+        }
+      }
     </style>
   </head>
   <body class="dashboard-page">
@@ -53,35 +77,25 @@
       <div class="row justify-content-center">
         <div class="col-lg-8">
           <div class="card border-0 shadow-sm rounded-4">
-            <div class="card-body p-5">
+            <div class="card-body p-5 upload-card-body">
               <h4 class="fw-bold mb-4 text-center">
                 <i class="fas fa-cloud-upload-alt text-primary me-2"></i>Test
                 faylini yuklash
               </h4>
 
               <!-- Upload Area -->
-              <div
-                class="upload-area rounded-4 p-5 text-center"
-                id="uploadArea">
-                <input
-                  type="file"
-                  id="fileInput"
-                  accept=".doc,.docx,.txt"
-                  class="d-none" />
+              <label
+                class="upload-area rounded-4 p-5 text-center d-block"
+                id="uploadArea"
+                for="fileInput">
                 <i class="fas fa-file-word fa-4x text-primary mb-3"></i>
                 <h5 class="fw-semibold mb-2">
                   .docx, .doc yoki .txt faylni tashlang
                 </h5>
                 <p class="text-muted mb-3">
                   yoki
-                  <a
-                    href="#"
-                    onclick="
-                      document.getElementById('fileInput').click();
-                      return false;
-                    "
-                    class="text-primary fw-semibold"
-                    >fayl tanlang</a
+                  <span class="text-primary fw-semibold text-decoration-underline"
+                    >fayl tanlang</span
                   >
                 </p>
                 <p class="small text-muted mb-0">
@@ -89,7 +103,12 @@
                   qo'llab-quvvatlanadi. Oddiy test fayli yuklansa, platforma
                   uni shablonga aylantiradi.
                 </p>
-              </div>
+              </label>
+              <input
+                type="file"
+                id="fileInput"
+                accept=".doc,.docx,.txt"
+                class="visually-hidden" />
 
               <!-- Processing indicator -->
               <div class="mt-3 text-center d-none" id="processingDiv">
@@ -137,7 +156,7 @@
                 <div class="alert alert-info py-2 rounded-pill">
                   <i class="fas fa-info-circle me-2"></i>Jami:
                   <strong id="totalParsed">0</strong> ta savol topildi. Testda
-                  tasodifiy <strong id="testCount">50</strong> tasi chiqadi.
+                  hammasi tasodifiy tartibda chiqadi.
                 </div>
                 <div class="alert alert-warning py-2 rounded-3 d-none" id="reviewNotice">
                   <i class="fas fa-triangle-exclamation me-2"></i>
@@ -248,9 +267,10 @@
         const file = e.dataTransfer.files[0];
         if (file) handleFile(file);
       });
-      uploadArea.addEventListener("click", () => fileInput.click());
       fileInput.addEventListener("change", (e) => {
-        if (e.target.files[0]) handleFile(e.target.files[0]);
+        const file = e.target.files[0];
+        if (file) handleFile(file);
+        e.target.value = "";
       });
 
       // ================= FILE HANDLING =================
@@ -341,7 +361,7 @@
         if (parsedQuestions.length === 0) {
           showAlert(
             "warning",
-            "Savollar topilmadi. Faylda savollar 1., 2. tartibida va variantlar A), B), C), D) ko'rinishida bo'lishi kerak.",
+            "Savollar topilmadi. Faylda savollar 1., 2. tartibida va har savolda kamida 4 ta variant bo'lishi kerak.",
           );
           resetUpload();
           return;
@@ -402,8 +422,9 @@
               });
               if (hasHash) correctAnswer = letter;
             });
-            if (correctAnswer)
-              questions.push({ question: parts[0], options, correctAnswer });
+            const fixedOptions = normalizeFourOptions(options, correctAnswer);
+            if (correctAnswer && fixedOptions.length === 4)
+              questions.push({ question: parts[0], options: fixedOptions, correctAnswer });
           });
           return questions;
         }
@@ -415,27 +436,32 @@
 
         compactBlocks.forEach((block) => {
           const compact = block.replace(/\n+/g, " ").replace(/\s+/g, " ").trim();
-          const questionMatch = compact.match(/^\d+[\.\)]\s*(.*?)(?=\s*[A-Da-d][\.\)]\s*)/);
+          const questionMatch = compact.match(/^\d+[\.\)]\s*(.*?)(?=\s*#?\s*[A-Da-d][\.\)]\s*)/);
           if (!questionMatch) return;
 
           const questionText = questionMatch[1].trim();
           const optionText = compact.slice(questionMatch[0].length).trim();
           const optionMatches = [
-            ...optionText.matchAll(/([A-Da-d])[\.\)]\s*(.*?)(?=\s*[A-Da-d][\.\)]\s*|$)/g),
+            ...optionText.matchAll(/(#\s*)?([A-Da-d])[\.\)]\s*(.*?)(?=\s*#?\s*[A-Da-d][\.\)]\s*|$)/g),
           ];
+          let correctAnswer = "";
           const options = optionMatches
             .map((match) => ({
-              letter: match[1].toUpperCase(),
-              text: match[2].replace(/^\s*#(?!#)\s*/, "").trim(),
+              letter: match[2].toUpperCase(),
+              text: match[3].replace(/^\s*#(?!#)\s*/, "").trim(),
+              isCorrect: Boolean(match[1]),
             }))
             .filter((option) => option.text);
+          const correctOption = options.find((option) => option.isCorrect);
+          if (correctOption) correctAnswer = correctOption.letter;
 
-          if (questionText && options.length >= 2) {
+          const fixedOptions = normalizeFourOptions(options, correctAnswer);
+          if (questionText && fixedOptions.length === 4) {
             questions.push({
               question: questionText,
-              options,
-              correctAnswer: "",
-              needsReview: true,
+              options: fixedOptions,
+              correctAnswer,
+              needsReview: !correctAnswer,
             });
           }
         });
@@ -472,10 +498,11 @@
             }
           }
 
-          if (questionText && options.length >= 2) {
+          const fixedOptions = normalizeFourOptions(options, correctAnswer);
+          if (questionText && fixedOptions.length === 4) {
             questions.push({
               question: questionText,
-              options,
+              options: fixedOptions,
               correctAnswer,
               needsReview: !correctAnswer,
             });
@@ -483,6 +510,21 @@
         });
 
         return questions;
+      }
+
+      function normalizeFourOptions(options, correctAnswer) {
+        const cleaned = options
+          .filter((option) => option.text)
+          .map((option) => ({ letter: option.letter, text: option.text }));
+        if (cleaned.length < 4) return [];
+
+        const firstFour = cleaned.slice(0, 4);
+        if (!correctAnswer || firstFour.some((option) => option.letter === correctAnswer)) {
+          return firstFour;
+        }
+
+        const correctOption = cleaned.find((option) => option.letter === correctAnswer);
+        return correctOption ? [...firstFour.slice(0, 3), correctOption] : firstFour;
       }
 
       // ================= PREVIEW & SAVE =================
@@ -498,8 +540,6 @@
           );
         document.getElementById("totalParsed").textContent =
           parsedQuestions.length;
-        const tc = Math.min(parsedQuestions.length, 50);
-        document.getElementById("testCount").textContent = tc;
 
         const table = document.getElementById("previewTable");
         table.innerHTML = "";
@@ -527,7 +567,7 @@
         const options = question.options
           .map(
             (option) =>
-              `<option value="${option.letter}" ${option.letter === question.correctAnswer ? "selected" : ""}>${option.letter}</option>`,
+              `<option value="${option.letter}" ${option.letter === question.correctAnswer ? "selected" : ""}>${option.text}</option>`,
           )
           .join("");
 
