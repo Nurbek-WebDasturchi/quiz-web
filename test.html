@@ -382,7 +382,7 @@
       const allQuestions = shuffleItems(test.questions).map(normalizeQuestionOptions);
       const stages = [allQuestions];
       const SECONDS_PER_QUESTION = 10;
-      const START_COUNTDOWN_SECONDS = 10;
+      const START_COUNTDOWN_SECONDS = 15;
       const STAGE_SECONDS = Math.max(1, allQuestions.length * SECONDS_PER_QUESTION);
 
       const questionOptionsByStage = stages.map((stage) =>
